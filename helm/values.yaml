@@ -2,10 +2,14 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+global:
+  host: apps.cluster-xjpwf.xjpwf.sandbox2771.opentlc.com
+  namespace: fruits
+
 replicaCount: 1
 
 image:
-  repository: nginx
+  repository: quay.io/rh-ee-amiralle/quarkus-fruits-api
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -16,7 +20,7 @@ fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # Automatically mount a ServiceAccount's API credentials?
   automount: true
   # Annotations to add to the service account
@@ -59,24 +63,33 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
+route:
+  enabled: true
+
+resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 autoscaling:
-  enabled: false
+  enabled: true
   minReplicas: 1
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+
+observability:
+  readiness:
+    endpoint: /q/ready
+  liveness:
+    endpoint: /q/live
 
 # Additional volumes on the output Deployment definition.
 volumes: []
@@ -96,3 +109,9 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+envs:
+  - name: QUARKUS_REST_CLIENT_FRUITS_DATA_URL
+    value: "http://fruits-data.fruits.svc.cluster.local"
+  - name: QUARKUS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+    value: "http://localhost:4317"

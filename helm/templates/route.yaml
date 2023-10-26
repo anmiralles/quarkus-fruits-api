@@ -1,0 +1,15 @@
+{{- if .Values.route.enabled -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "fruits-api.fullname" . }}
+spec:
+  host: {{ include "fruits-api.fullname" . }}-{{ .Values.global.namespace }}.{{ .Values.global.host }}
+  port:
+    targetPort: http-listener
+  to:
+    kind: Service
+    name: {{ include "fruits-api.fullname" . }}
+    weight: 100
+  wildcardPolicy: None
+{{- end }}
