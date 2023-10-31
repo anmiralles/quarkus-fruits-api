@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+{{ include "fruits-api.labels" . | indent 4 }}
+    prometheus: monitoring
+{{- if .Values.service.name }}
+  name: {{ .Values.service.name }}
+{{- else }}
+  name: {{ template "fruits-api.fullname" . }}
+{{- end }}
+spec:
+  endpoints:
+  - path: /q/metrics
+    port: http
+    interval: 60s
+    scheme: http
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+{{ include "fruits-api.labels" . | indent 6 }}

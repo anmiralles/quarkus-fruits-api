@@ -34,7 +34,8 @@ public class FruitResource {
     @RestClient
     FruitClient fruitClient;
 
-    //@Inject ReactiveRedisDataSource redisDataSource;
+    @Inject
+    FruitRedisService redisService;
 
     @GET
     @Operation(summary = "Returns all fruits")
@@ -60,8 +61,21 @@ public class FruitResource {
             responseCode = "422",
             description = "The fruit is not found for a given identifier"
     )
-    public Uni<Fruit> getSingle(Long id) {
-        return fruitClient.getSingle(id);
+    public Uni<Response> getSingle(Long id) {
+
+        return this.redisService.getFruit(String.valueOf(id))
+                .onItem().ifNotNull().transform(cacheEntity -> {
+                        LOGGER.info("got from cache");
+                        return Response.ok(cacheEntity).build();
+                    })
+                .onItem().ifNull().switchTo(() -> {
+                    LOGGER.info("got from database");
+                    return fruitClient.getSingle(id)
+                            .onItem().ifNotNull().invoke(fruit -> this.redisService.setFruit(String.valueOf(id), fruit))
+                            .onItem().transform(fruit -> Response.ok(fruit).build());
+                });
+
+        //return fruitClient.getSingle(id);
     }
 
     @POST
