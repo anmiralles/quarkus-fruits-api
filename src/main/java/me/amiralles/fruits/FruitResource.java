@@ -3,6 +3,9 @@ package me.amiralles.fruits;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.quarkus.infinispan.client.CacheInvalidate;
+import io.quarkus.infinispan.client.CacheResult;
+import io.quarkus.infinispan.client.Remote;
 import io.smallrye.mutiny.CompositeException;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,14 +14,18 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import me.amiralles.fruits.cache.FruitCache;
+import me.amiralles.fruits.cache.FruitsCache;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.infinispan.client.hotrod.RemoteCache;
 import org.jboss.logging.Logger;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.eclipse.microprofile.openapi.annotations.enums.SchemaType.ARRAY;
@@ -31,11 +38,19 @@ public class FruitResource {
 
     private static final Logger LOGGER = Logger.getLogger(FruitResource.class.getName());
 
+    @Inject
+    @Remote("fruit")
+    RemoteCache<String, FruitCache> fruitCache;
+
+    @Inject
+    @Remote("fruits")
+    RemoteCache<String, FruitsCache> fruitsCache;
+
     @RestClient
     FruitClient fruitClient;
 
     @Inject
-    FruitRedisService redisService;
+    FruitMapper mapper;
 
     @GET
     @Operation(summary = "Returns all fruits")
@@ -45,8 +60,13 @@ public class FruitResource {
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Fruit .class, type = ARRAY))
     )
     @WithSpan("FruitResource.get")
-    public Uni<List<Fruit>> get() {
-        return fruitClient.get();
+    @CacheResult(cacheName = "fruits")
+    public FruitsCache get(String authors) {
+        List<Fruit> fruits = fruitClient.get().await().indefinitely();
+        return new FruitsCache(fruits
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList()));
     }
 
     @GET
@@ -61,21 +81,10 @@ public class FruitResource {
             responseCode = "422",
             description = "The fruit is not found for a given identifier"
     )
-    public Uni<Response> getSingle(Long id) {
-
-        return this.redisService.getFruit(String.valueOf(id))
-                .onItem().ifNotNull().transform(cacheEntity -> {
-                        LOGGER.info("got from cache");
-                        return Response.ok(cacheEntity).build();
-                    })
-                .onItem().ifNull().switchTo(() -> {
-                    LOGGER.info("got from database");
-                    return fruitClient.getSingle(id)
-                            .onItem().ifNotNull().invoke(fruit -> this.redisService.setFruit(String.valueOf(id), fruit))
-                            .onItem().transform(fruit -> Response.ok(fruit).build());
-                });
-
-        //return fruitClient.getSingle(id);
+    @CacheResult(cacheName = "fruit")
+    public FruitCache getSingle(Long id) {
+        Uni<Fruit> fruitUni = fruitClient.getSingle(id);
+        return mapper.toDomain(fruitUni.await().indefinitely());
     }
 
     @POST
@@ -88,6 +97,7 @@ public class FruitResource {
             responseCode = "422",
             description = "Invalid fruit passed in (or no request body found)"
     )
+    @CacheInvalidate(cacheName = "fruits")
     public Uni<Response> create(Fruit fruit) {
         if (fruit == null || fruit.id != null) {
             throw new WebApplicationException("Id was invalidly set on request.", 422);
@@ -98,6 +108,7 @@ public class FruitResource {
 
     @PUT
     @Path("{id}")
+    @CacheInvalidate(cacheName = "fruits")
     public Uni<Response> update(Long id, Fruit fruit) {
         if (fruit == null || fruit.name == null) {
             throw new WebApplicationException("Fruit name was not set on request.", 422);
@@ -108,7 +119,8 @@ public class FruitResource {
 
     @DELETE
     @Path("{id}")
-    public Uni<Response> delete(Long id) {
+    @CacheInvalidate(cacheName = "fruit")
+    public Uni<Response> delete(@PathParam("id") Long id) {
         return fruitClient.delete(id);
     }
 
