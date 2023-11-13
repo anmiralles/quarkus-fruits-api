@@ -5,43 +5,37 @@ import org.infinispan.protostream.annotations.ProtoField;
 
 import java.util.Objects;
 
-public class FruitCache {
-    private final String name;
-    private final Long itemId;
-
+public record FruitCache(Long id, String name, Long itemId) {
     @ProtoFactory
-    public FruitCache(String name, Long itemId) {
+    public FruitCache(Long id, String name, Long itemId) {
+        this.id = Objects.requireNonNull(id);
         this.name = Objects.requireNonNull(name);
         this.itemId = Objects.requireNonNull(itemId);
     }
 
+    @Override
     @ProtoField(number = 1)
-    public String getName() {
+    public Long id() {
+        return id;
+    }
+
+    @Override
+    @ProtoField(number = 2)
+    public String name() {
         return name;
     }
 
-    @ProtoField(number = 2)
-    public Long getItemId() {
+    @Override
+    @ProtoField(number = 3)
+    public Long itemId() {
         return itemId;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        FruitCache that = (FruitCache) o;
-        return Objects.equals(name, that.name) && Objects.equals(itemId, that.itemId);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(name, itemId);
     }
 
     @Override
     public String toString() {
         return "FruitCache{" +
-                "name='" + name + '\'' +
+                "id=" + id +
+                ", name='" + name + '\'' +
                 ", itemId=" + itemId +
                 '}';
     }
