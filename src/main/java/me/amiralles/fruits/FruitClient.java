@@ -18,13 +18,13 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 public interface FruitClient {
 
     @GET
-    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.get")
-    Uni<List<Fruit>> get();
+    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.getFruits")
+    Uni<List<Fruit>> getFruits();
 
     @GET
     @Path("{id}")
-    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.getSingle")
-    Uni<Fruit> getSingle(@PathParam("id") Long id);
+    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.getFruit")
+    Uni<Fruit> getFruit(@PathParam("id") Long id);
 
     @POST
     @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.create")

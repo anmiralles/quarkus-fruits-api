@@ -6,10 +6,13 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.quarkus.infinispan.client.Remote;
 import io.smallrye.mutiny.CompositeException;
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import me.amiralles.fruits.cache.FruitCache;
@@ -22,6 +25,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.jboss.logging.Logger;
 
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 
@@ -50,6 +54,12 @@ public class FruitResource {
     @Inject
     FruitMapper mapper;
 
+    @Context
+    UriInfo uriInfo;
+
+    @Context
+    HttpServerRequest request;
+
     @GET
     @Operation(summary = "Returns all fruits")
     @APIResponse(
@@ -58,11 +68,11 @@ public class FruitResource {
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Fruit .class, type = ARRAY))
     )
     @WithSpan("FruitResource.get")
-    public FruitsCache get() {
+    public FruitsCache getFruits() {
         FruitsCache fruitsFromCache = fruitsCache.get("fruits");
 
         if (fruitsFromCache == null || fruitsFromCache.getLstFruitsCache().isEmpty()) {
-            List<Fruit> fruitsFromDb = fruitClient.get().await().indefinitely();
+            List<Fruit> fruitsFromDb = fruitClient.getFruits().await().indefinitely();
             fruitsFromCache = mapper.toDomainList(fruitsFromDb);
             fruitsCache.put("fruits", fruitsFromCache);
         }
@@ -82,11 +92,11 @@ public class FruitResource {
             responseCode = "422",
             description = "The fruit is not found for a given identifier"
     )
-    public FruitCache getSingle(Long id) throws WebApplicationException {
+    public FruitCache getFruit(Long id) throws WebApplicationException {
         FruitCache fruitFromCache = fruitCache.get(String.valueOf(id));
 
         if (fruitFromCache == null) {
-            Fruit fruitFromDb = fruitClient.getSingle(id).await().indefinitely();
+            Fruit fruitFromDb = fruitClient.getFruit(id).await().indefinitely();
 
             if(fruitFromDb != null ) {
                 fruitFromCache = mapper.toDomain(fruitFromDb);
@@ -109,12 +119,15 @@ public class FruitResource {
             responseCode = "422",
             description = "Invalid fruit passed in (or no request body found)"
     )
-    public Uni<Response> create(Fruit fruit) {
+    public Response create(Fruit fruit) {
         if (fruit == null || fruit.id != null) {
             throw new WebApplicationException("Id was invalidly set on request.", 422);
         }
         fruitsCache.clear();
-        return fruitClient.create(fruit);
+        Uni<Response> fruitResponse = fruitClient.create(fruit);
+        return Response
+                .created(buildUri(fruitResponse.await().indefinitely().readEntity(Fruit.class)))
+                .build();
     }
 
     @PUT
@@ -124,7 +137,8 @@ public class FruitResource {
             throw new WebApplicationException("Fruit name was not set on request.", 422);
         }
         fruitsCache.clear();
-        return fruitClient.update(id, fruit);
+        fruitClient.update(id, fruit);
+        return Uni.createFrom().item(Response.status(Response.Status.CREATED).build());
     }
 
     @DELETE
@@ -132,6 +146,15 @@ public class FruitResource {
     public Uni<Response> delete(@PathParam("id") Long id) {
         fruitCache.remove(String.valueOf(id));
         return fruitClient.delete(id);
+    }
+
+    private URI buildUri(Fruit fruit) {
+        return uriInfo.getBaseUriBuilder()
+                .host(request.localAddress().host())
+                .port(request.localAddress().port())
+                .path(FruitResource.class)
+                .path(FruitResource.class, "getFruit")
+                .build(fruit.id);
     }
 
     @Provider
