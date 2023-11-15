@@ -7,10 +7,10 @@ spec:
   destination:
     namespace: fruits
     server: https://kubernetes.default.svc
-  project: fruits
+  project: default
   source:
     chart: fruits-api
-    repoURL: https://anmiralles.github.io/public-helm-charts/
+    repoURL: https://anmiralles.github.io/helm-charts/
     targetRevision: 1.0.0
     helm:
       releaseName: fruits-api

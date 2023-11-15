@@ -27,14 +27,16 @@ public interface FruitClient {
     Uni<Fruit> getFruit(@PathParam("id") Long id);
 
     @POST
-    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.create")
-    Uni<Response> create(Fruit fruit);
+    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.createFruit")
+    Uni<Response> createFruit(Fruit fruit);
 
     @PUT
     @Path("{id}")
-    Uni<Response> update(Long id, Fruit fruit);
+    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.updateFruit")
+    Uni<Response> updateFruit(@PathParam("id") Long id, Fruit fruit);
 
     @DELETE
     @Path("{id}")
-    Uni<Response> delete(@PathParam("id") Long id);
+    @WithSpan(kind = SpanKind.CLIENT, value = "FruitClient.deleteFruit")
+    Uni<Response> deleteFruit(@PathParam("id") Long id);
 }

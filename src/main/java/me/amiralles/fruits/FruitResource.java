@@ -1,33 +1,18 @@
 package me.amiralles.fruits;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import io.quarkus.infinispan.client.Remote;
-import io.smallrye.mutiny.CompositeException;
 import io.smallrye.mutiny.Uni;
-import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriInfo;
-import jakarta.ws.rs.ext.ExceptionMapper;
-import jakarta.ws.rs.ext.Provider;
 import me.amiralles.fruits.cache.FruitCache;
 import me.amiralles.fruits.cache.FruitsCache;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.infinispan.client.hotrod.RemoteCache;
 import org.jboss.logging.Logger;
-
-import java.net.URI;
-import java.util.List;
-import java.util.concurrent.CompletionException;
 
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.eclipse.microprofile.openapi.annotations.enums.SchemaType.ARRAY;
@@ -41,24 +26,7 @@ public class FruitResource {
     private static final Logger LOGGER = Logger.getLogger(FruitResource.class.getName());
 
     @Inject
-    @Remote("fruit")
-    RemoteCache<String, FruitCache> fruitCache;
-
-    @Inject
-    @Remote("fruits")
-    RemoteCache<String, FruitsCache> fruitsCache;
-
-    @RestClient
-    FruitClient fruitClient;
-
-    @Inject
-    FruitMapper mapper;
-
-    @Context
-    UriInfo uriInfo;
-
-    @Context
-    HttpServerRequest request;
+    FruitService fruitService;
 
     @GET
     @Operation(summary = "Returns all fruits")
@@ -67,17 +35,10 @@ public class FruitResource {
             description = "Gets all fruits, or empty list if none",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Fruit .class, type = ARRAY))
     )
-    @WithSpan("FruitResource.get")
+    @WithSpan("FruitResource.getFruits")
     public FruitsCache getFruits() {
-        FruitsCache fruitsFromCache = fruitsCache.get("fruits");
-
-        if (fruitsFromCache == null || fruitsFromCache.getLstFruitsCache().isEmpty()) {
-            List<Fruit> fruitsFromDb = fruitClient.getFruits().await().indefinitely();
-            fruitsFromCache = mapper.toDomainList(fruitsFromDb);
-            fruitsCache.put("fruits", fruitsFromCache);
-        }
-
-        return fruitsFromCache;
+        LOGGER.info("Getting fruits");
+        return fruitService.getFruits();
     }
 
     @GET
@@ -92,21 +53,10 @@ public class FruitResource {
             responseCode = "422",
             description = "The fruit is not found for a given identifier"
     )
-    public FruitCache getFruit(Long id) throws WebApplicationException {
-        FruitCache fruitFromCache = fruitCache.get(String.valueOf(id));
-
-        if (fruitFromCache == null) {
-            Fruit fruitFromDb = fruitClient.getFruit(id).await().indefinitely();
-
-            if(fruitFromDb != null ) {
-                fruitFromCache = mapper.toDomain(fruitFromDb);
-                fruitCache.put(String.valueOf(id), mapper.toDomain(fruitFromDb));
-            } else {
-                throw new WebApplicationException("Fruit with id of " + id + " does not exist.", 422);
-            }
-        }
-
-        return fruitFromCache;
+    @WithSpan("FruitResource.getFruit")
+    public FruitCache getFruit(Long id) {
+        LOGGER.info("Getting fruit for id: " + id);
+        return fruitService.getFruit(id);
     }
 
     @POST
@@ -119,83 +69,45 @@ public class FruitResource {
             responseCode = "422",
             description = "Invalid fruit passed in (or no request body found)"
     )
-    public Response create(Fruit fruit) {
+    @WithSpan("FruitResource.createFruit")
+    public Response createFruit(Fruit fruit) {
         if (fruit == null || fruit.id != null) {
             throw new WebApplicationException("Id was invalidly set on request.", 422);
         }
-        fruitsCache.clear();
-        Uni<Response> fruitResponse = fruitClient.create(fruit);
-        return Response
-                .created(buildUri(fruitResponse.await().indefinitely().readEntity(Fruit.class)))
-                .build();
+        LOGGER.info("Creating fruit: " + fruit);
+        return fruitService.createFruit(fruit);
     }
 
     @PUT
     @Path("{id}")
-    public Uni<Response> update(Long id, Fruit fruit) {
+    @Operation(summary = "Updates a fruit")
+    @APIResponse(
+            responseCode = "200",
+            description = "The fruit was updated"
+    )
+    @APIResponse(
+            responseCode = "422",
+            description = "Invalid fruit passed in (or no request body found)"
+    )
+    @WithSpan("FruitResource.updateFruit")
+    public Uni<Response> updateFruit(Long id, Fruit fruit) {
         if (fruit == null || fruit.name == null) {
             throw new WebApplicationException("Fruit name was not set on request.", 422);
         }
-        fruitsCache.clear();
-        fruitClient.update(id, fruit);
-        return Uni.createFrom().item(Response.status(Response.Status.CREATED).build());
+        LOGGER.info("Updating fruit for id:: " + fruit.id);
+        return fruitService.updateFruit(id, fruit);
     }
 
     @DELETE
     @Path("{id}")
+    @Operation(summary = "Updates a fruit")
+    @APIResponse(
+            responseCode = "204",
+            description = "No Content"
+    )
+    @WithSpan("FruitResource.deleteFruit")
     public Uni<Response> delete(@PathParam("id") Long id) {
-        fruitCache.remove(String.valueOf(id));
-        return fruitClient.delete(id);
+        return fruitService.delete(id);
     }
 
-    private URI buildUri(Fruit fruit) {
-        return uriInfo.getBaseUriBuilder()
-                .host(request.localAddress().host())
-                .port(request.localAddress().port())
-                .path(FruitResource.class)
-                .path(FruitResource.class, "getFruit")
-                .build(fruit.id);
-    }
-
-    @Provider
-    public static class ErrorMapper implements ExceptionMapper<Exception> {
-
-        @Inject
-        ObjectMapper objectMapper;
-
-        @Override
-        public Response toResponse(Exception exception) {
-            LOGGER.error("Failed to handle request", exception);
-
-            Throwable throwable = exception;
-
-            int code = 500;
-            if (throwable instanceof WebApplicationException) {
-                code = ((WebApplicationException) exception).getResponse().getStatus();
-            }
-
-            // This is a Mutiny exception and it happens, for example, when we try to insert a new
-            // fruit but the name is already in the database
-            if (throwable instanceof CompositeException) {
-                throwable = ((CompositeException) throwable).getCause();
-            }
-
-            if(throwable instanceof CompletionException) {
-                throwable = ((CompletionException) throwable).getCause();
-            }
-
-            ObjectNode exceptionJson = objectMapper.createObjectNode();
-            exceptionJson.put("exceptionType", throwable.getClass().getName());
-            exceptionJson.put("code", code);
-
-            if (exception.getMessage() != null) {
-                exceptionJson.put("error", throwable.getMessage());
-            }
-
-            return Response.status(code)
-                    .entity(exceptionJson)
-                    .build();
-        }
-
-    }
 }
