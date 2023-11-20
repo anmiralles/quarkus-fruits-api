@@ -37,6 +37,11 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            - name: QUARKUS_INFINISPAN_CLIENT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fruits-api.fullname" . }}-infinispan-secret
+                  key: infinispan-password
             {{- range .Values.envs }}
             - name: {{ .name }}
               value: {{ .value }}
