@@ -1,0 +1,19 @@
+{{- if .Values.virtualservice.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "fruits-api.fullname" . }}
+  labels:
+    {{- include "fruits-api.labels" . | nindent 4 }}
+spec:
+  gateways:
+  - {{ include "fruits-api.fullname" . }}
+  hosts:
+  - {{ include "fruits-api.fullname" . }}-{{ .Values.global.namespace }}.{{ .Values.global.host }}
+  http:
+  - route:
+    - destination:
+        host: {{ include "fruits-api.fullname" . }}
+        port:
+          number: {{ .Values.service.port }}
+{{- end }}

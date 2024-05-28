@@ -94,7 +94,7 @@ public class FruitResource {
         if (fruit == null || fruit.name == null) {
             throw new WebApplicationException("Fruit name was not set on request.", 422);
         }
-        LOGGER.info("Updating fruit for id:: " + fruit.id);
+        LOGGER.info("Updating fruit for id: " + fruit.id);
         return fruitService.updateFruit(id, fruit);
     }
 
@@ -107,6 +107,7 @@ public class FruitResource {
     )
     @WithSpan("FruitResource.deleteFruit")
     public Uni<Response> delete(@PathParam("id") Long id) {
+        LOGGER.info("Deleting fruit for id: " + id);
         return fruitService.delete(id);
     }
 

@@ -6,7 +6,6 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
@@ -15,15 +14,11 @@ import me.amiralles.fruits.cache.FruitCache;
 import me.amiralles.fruits.cache.FruitsCache;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.infinispan.client.hotrod.RemoteCache;
-import org.jboss.logging.Logger;
-
 import java.net.URI;
 import java.util.List;
 
 @ApplicationScoped
 public class FruitService {
-
-    private static final Logger LOGGER = Logger.getLogger(FruitService.class.getName());
 
     @Inject
     @Remote("fruit")

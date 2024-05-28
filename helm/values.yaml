@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 global:
-  host: apps.cluster-xjpwf.xjpwf.sandbox2771.opentlc.com
+  host: apps.cluster-67ptw.dynamic.redhatworkshops.io
   namespace: fruits
 
 replicaCount: 1
@@ -16,7 +16,7 @@ image:
 
 imagePullSecrets: []
 nameOverride: ""
-fullnameOverride: ""
+fullnameOverride: "fruits-api"
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -45,27 +45,21 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  port: 80
-
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  port: 8080
 
 route:
   enabled: true
 
+gateway:
+  enabled: false
+  port:
+    name: http
+    number: 80
+    protocol: HTTP
+
+virtualservice:
+  enabled: false
+  
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -111,14 +105,14 @@ tolerations: []
 affinity: {}
 
 infinispan:
-  host: infinispan.fruits.svc.cluster.local
-  user: "admin"
+  host: fruits-api-infinispan.fruits.svc.cluster.local
+  user: "developer"
 
 envs:
   - name: QUARKUS_REST_CLIENT_FRUITS_DATA_URL
     value: "http://fruits-data.fruits.svc.cluster.local"
-  - name: QUARKUS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-    value: "http://localhost:4317"
+  # - name: QUARKUS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+  #   value: "http://localhost:4317"
   - name: QUARKUS_INFINISPAN_CLIENT_HOSTS
     value: ${infinispan.host}
   - name: QUARKUS_INFINISPAN_CLIENT_USERNAME

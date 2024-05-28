@@ -40,8 +40,8 @@ spec:
             - name: QUARKUS_INFINISPAN_CLIENT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "fruits-api.fullname" . }}-infinispan-secret
-                  key: infinispan-password
+                  name: {{ include "fruits-api.fullname" . }}-infinispan-generated-secret
+                  key: credentials.password
             {{- range .Values.envs }}
             - name: {{ .name }}
               value: {{ .value }}
