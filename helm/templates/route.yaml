@@ -4,9 +4,9 @@ kind: Route
 metadata:
   name: {{ include "fruits-api.fullname" . }}
 spec:
-  host: {{ include "fruits-api.fullname" . }}-{{ .Values.global.namespace }}.{{ .Values.global.host }}
+  host: {{ include "fruits-api.fullname" . }}.{{ .Values.global.namespace }}.{{ .Values.global.host }}
   port:
-    targetPort: http-listener
+    targetPort: http
   to:
     kind: Service
     name: {{ include "fruits-api.fullname" . }}

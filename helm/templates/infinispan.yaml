@@ -1,8 +1,0 @@
-kind: Infinispan
-apiVersion: infinispan.org/v1
-metadata:
-  name: {{ include "fruits-api.fullname" . }}-infinispan
-  labels:
-    {{- include "fruits-api.labels" . | nindent 4 }}
-spec:
-  replicas: 1

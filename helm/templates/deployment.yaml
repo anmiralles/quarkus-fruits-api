@@ -40,8 +40,8 @@ spec:
             - name: QUARKUS_INFINISPAN_CLIENT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "fruits-api.fullname" . }}-infinispan-generated-secret
-                  key: credentials.password
+                  name: {{ include "fruits-api.fullname" . }}-infinispan-secret
+                  key: infinispan-password
             {{- range .Values.envs }}
             - name: {{ .name }}
               value: {{ .value }}
@@ -53,11 +53,13 @@ spec:
           livenessProbe:
             httpGet:
               path: {{ .Values.observability.liveness.endpoint }}
-              port: http
+              port: {{ .Values.service.port }}
+              scheme: HTTP
           readinessProbe:
             httpGet:
               path: {{ .Values.observability.readiness.endpoint }}
-              port: http
+              port: {{ .Values.service.port }}
+              scheme: HTTP
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- with .Values.volumeMounts }}
