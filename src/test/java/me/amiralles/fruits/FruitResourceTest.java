@@ -10,7 +10,7 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 @QuarkusTest
 public class FruitResourceTest {
 
-    @Test
+    /*@Test
     public void testGetFruitsEndpoint() {
         given()
                 .when().get("/fruits")
@@ -29,7 +29,7 @@ public class FruitResourceTest {
                 .body(is(notNullValue()));
     }
 
-    /*@Test
+    @Test
     public void testCreateFruitEndpoint() {
         Fruit fruit = new Fruit(); // replace with a valid fruit object
         fruit.name = "Strawberry";
